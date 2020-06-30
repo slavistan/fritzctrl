@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 die() {
-  printf "$@"
+  printf "$@" >&2
   exit 1
 }
 
