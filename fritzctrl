@@ -89,6 +89,6 @@ case $1 in
     _usage
     ;;
   *)
-    echo "Unknown command. Abort."
+    echo "Unknown command. Try --help."
     exit 1
 esac
