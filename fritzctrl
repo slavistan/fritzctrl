@@ -1,0 +1,94 @@
+#!/usr/bin/env sh
+
+die() {
+  printf "$@"
+  exit 1
+}
+
+_usage() {
+  name="$(basename "$0")"
+  printf "\
+Usage:
+  $name reboot
+  $name reconnect
+  $name info [FILTER]
+
+  Credentials are set via the envvars 'FRITZUSER', 'FRITZPW' and 'FRITZIP'.
+"
+}
+
+_reboot() {
+  __check_creds
+  LOCATION="/upnp/control/deviceconfig"
+  URI="urn:dslforum-org:service:DeviceConfig:1"
+  ACTION='Reboot'
+  __fire_request
+}
+
+_reconnect() {
+  __check_creds
+  LOCATION="/upnp/control/wanpppconn1"
+  URI="urn:dslforum-org:service:WANPPPConnection:1"
+  ACTION='ForceTermination'
+  __fire_request
+}
+
+_info() {
+  __check_creds
+  LOCATION="/upnp/control/wanpppconn1"
+  URI="urn:dslforum-org:service:WANPPPConnection:1"
+  ACTION='GetInfo'
+  reply=$(__fire_request |
+    grep '^<New' |
+    sed 's/^<New\([^>]\+\)>\(.*\)<\/New\1>$/\1€\2/g' |
+    column -s '€' -t)
+
+  if [ ! -z "$1" ]; then
+    filter=$(echo "$@" | tr ' ' '|')
+    echo "$reply" | sed -nE '/'"^$filter"'\s/p'
+  else
+    echo "$reply"
+  fi
+}
+
+__check_creds() {
+  if [ -z "$FRITZUSER" ] || [ -z "$FRITZPW" ] || [ -z "$FRITZIP" ]; then
+    die "Credentials missing. Set envvars FRITZUSER, FRITZPW and FRITZIP and try again.\n"
+  fi
+}
+
+__fire_request() {
+  XML="\
+  <?xml version='1.0' encoding='utf-8'?>
+    <s:Envelope s:encodingStyle='http://schemas.xmlsoap.org/soap/encoding/' xmlns:s='http://schemas.xmlsoap.org/soap/envelope/'>
+      <s:Body>
+        <u:$ACTION xmlns:u='$URI'></u:$ACTION>
+      </s:Body>
+    </s:Envelope>"
+
+  curl -s -k -m 5 --anyauth                      \
+    -u "$FRITZUSER:$FRITZPW"                     \
+    -H 'Content-Type: text/xml; charset="utf-8"' \
+    -H "SoapACTION:$URI#$ACTION"                 \
+    -d "$XML"                                    \
+    http://$FRITZIP:49000$LOCATION
+}
+
+case $1 in
+  reboot)
+    _reboot
+    ;;
+  reconnect)
+    _reconnect
+    ;;
+  info)
+    shift
+    _info "$@"
+    ;;
+  -h|--help|-?)
+    _usage
+    ;;
+  *)
+    echo "Unknown command. Abort."
+    exit 1
+esac
