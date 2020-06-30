@@ -29,11 +29,19 @@ _reboot() {
 }
 
 _reconnect() {
+  [ "$1" = "--sync" ] && sync=1 || sync=0
   __check_creds
   LOCATION="/upnp/control/wanpppconn1"
   URI="urn:dslforum-org:service:WANPPPConnection:1"
   ACTION='ForceTermination'
-  __fire_request
+  __fire_request > /dev/null
+
+  [ "$sync" -eq 0 ] && return
+  printf "Disconnected. Waiting to reconnect ... "
+  while [ "$(_info --value-only ConnectionStatus)" != "Connected" ]; do
+    sleep 1
+  done
+  printf "done!\n"
 }
 
 _info() {
