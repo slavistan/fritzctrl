@@ -16,12 +16,15 @@ Usage:
   $name info [--value-only] [FILTER]...
     Output is sorted according to order of filters.
 
+  $name check
+    Perform superficial check of credentials.
+
   Credentials are set via the envvars 'FRITZUSER', 'FRITZPW' and 'FRITZIP'.
 "
 }
 
 _reboot() {
-  __check_creds
+  __check_creds_are_set
   LOCATION="/upnp/control/deviceconfig"
   URI="urn:dslforum-org:service:DeviceConfig:1"
   ACTION='Reboot'
@@ -31,7 +34,7 @@ _reboot() {
 
 _reconnect() {
   [ "$1" = "--sync" ] && sync=1 || sync=0
-  __check_creds
+  __check_creds_are_set
   LOCATION="/upnp/control/wanpppconn1"
   URI="urn:dslforum-org:service:WANPPPConnection:1"
   ACTION='ForceTermination'
@@ -47,7 +50,7 @@ _reconnect() {
 }
 
 _info() {
-  __check_creds
+  __check_creds_are_set
   LOCATION="/upnp/control/wanpppconn1"
   URI="urn:dslforum-org:service:WANPPPConnection:1"
   ACTION='GetInfo'
@@ -80,7 +83,13 @@ _info() {
   fi
 }
 
-__check_creds() {
+# Superficially check whether credentials are aight
+_check() {
+  __check_creds_are_set
+  _info ExternalIPAddress | grep -qF 'ExternalIPAddress' || return 1
+}
+
+__check_creds_are_set() {
   if [ -z "$FRITZUSER" ] || [ -z "$FRITZPW" ] || [ -z "$FRITZIP" ]; then
     die "Credentials missing. Set envvars FRITZUSER, FRITZPW and FRITZIP and try again.\n"
   fi
@@ -95,12 +104,14 @@ __fire_request() {
       </s:Body>
     </s:Envelope>"
 
-  curl -s -k -m 5 --anyauth                      \
+  data=$(curl -s -k -m 5 --anyauth               \
     -u "$FRITZUSER:$FRITZPW"                     \
     -H 'Content-Type: text/xml; charset="utf-8"' \
     -H "SoapACTION:$URI#$ACTION"                 \
     -d "$XML"                                    \
     http://$FRITZIP:49000$LOCATION
+  )
+  echo "$data"
 }
 
 case $1 in
@@ -115,6 +126,10 @@ case $1 in
     shift
     _info "$@"
     ;;
+  check)
+    _check
+    exit "$?"
+    ;;
   -h|--help|-?)
     _usage
     ;;
@@ -123,4 +138,4 @@ case $1 in
     exit 1
 esac
 
-TODO(feat): --notify flag to control notification.
+# TODO(feat): --notify flag to control notification.
