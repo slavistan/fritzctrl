@@ -10,8 +10,11 @@ _usage() {
   printf "\
 Usage:
   $name reboot
-  $name reconnect
-  $name info [FILTER]
+
+  $name reconnect [--sync]
+
+  $name info [--value-only] [FILTER]...
+    Output is sorted according to order of filters.
 
   Credentials are set via the envvars 'FRITZUSER', 'FRITZPW' and 'FRITZIP'.
 "
@@ -43,9 +46,25 @@ _info() {
     sed 's/^<New\([^>]\+\)>\(.*\)<\/New\1>$/\1€\2/g' |
     column -s '€' -t)
 
-  if [ ! -z "$1" ]; then
-    filter=$(echo "$@" | tr ' ' '|')
-    echo "$reply" | sed -nE '/'"^$filter"'\s/p'
+  [ "$1" = "--value-only" ] && vals=1 && shift || vals=0
+  reply=$(\
+    if [ ! -z "$1" ]; then
+      filter=$(echo "$@" | tr ' ' '|')
+      unsorted="$(echo "$reply" | sed -nE '/'"^$filter"'\s/p')"
+      ii=1
+      for word in "$@"; do
+        echo "$unsorted" |
+          sed 's/^'"$word"'/'"$ii"'€'"$word"'/g;t;d' |
+          sort |
+          sed 's/^..//g'
+        ii=$(expr $ii + 1)
+      done
+    else
+      echo "$reply"
+    fi
+  )
+  if [ "$vals" -eq 1 ]; then
+    echo "$reply" | cut -d ' ' -f 2- | sed 's/^\s\+//g'
   else
     echo "$reply"
   fi
@@ -79,7 +98,8 @@ case $1 in
     _reboot
     ;;
   reconnect)
-    _reconnect
+    shift
+    _reconnect "$1"
     ;;
   info)
     shift
