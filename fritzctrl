@@ -25,7 +25,8 @@ _reboot() {
   LOCATION="/upnp/control/deviceconfig"
   URI="urn:dslforum-org:service:DeviceConfig:1"
   ACTION='Reboot'
-  __fire_request
+  __fire_request > /dev/null \
+    && notify-send "fritzctrl" "Rebooting device\n$FRITZIP."
 }
 
 _reconnect() {
@@ -34,7 +35,8 @@ _reconnect() {
   LOCATION="/upnp/control/wanpppconn1"
   URI="urn:dslforum-org:service:WANPPPConnection:1"
   ACTION='ForceTermination'
-  __fire_request > /dev/null
+  __fire_request > /dev/null \
+    && notify-send "fritzctrl" "Reconnecting device\n$FRITZIP."
 
   [ "$sync" -eq 0 ] && return
   printf "Disconnected. Waiting to reconnect ... "
