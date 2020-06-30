@@ -120,3 +120,5 @@ case $1 in
     echo "Unknown command. Try --help."
     exit 1
 esac
+
+TODO(feat): --notify flag to control notification.
